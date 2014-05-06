@@ -48,9 +48,10 @@ int main (int argc, char* argv[]) {
     state.config.digest_size = atoi(argv[2]); // This must be specified!
     state.config.rounds = 40 + (state.config.digest_size / 4);
 
-    //Base da arvore
+    //arquivo tiver mais de um bloco
     if(tam>128){
         while((bytes=fread(buf,sizeof(char),512,file))){
+   	 	//Base da arvore
             if(bytes!=512){
                 //Block parcial
                 for(i=bytes;i<512;i++){
