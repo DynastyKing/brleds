@@ -1,0 +1,46 @@
+# depslib dependency file v1.0
+1396073697 source:/home/andre/workspace/c/MD6/main.c
+	<stdio.h>
+	<stdlib.h>
+
+1396464784 source:/home/andre/workspace/c/MD6/md6_compress.c
+	<stdlib.h>
+	<string.h>
+	"md6.h"
+
+1239933996 /home/andre/workspace/c/MD6/md6.h
+	"inttypes.h"
+	<inttypes.h>
+
+1239933998 /home/andre/workspace/c/MD6/inttypes.h
+	"stdint.h"
+
+1239933998 /home/andre/workspace/c/MD6/stdint.h
+	<limits.h>
+	<wchar.h>
+
+1396623288 source:/home/andre/workspace/c/MD6/md6_mode.c
+	<stdio.h>
+	<string.h>
+	<sys/types.h>
+	<sys/wait.h>
+	"md6.h"
+
+1239933998 source:/home/andre/workspace/c/MD6/md6_nist.c
+	<stdio.h>
+	"md6.h"
+	"md6_nist.h"
+
+1239933998 /home/andre/workspace/c/MD6/md6_nist.h
+
+1396623261 source:/home/andre/workspace/c/MD6/md6sum.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<ctype.h>
+	<time.h>
+	<assert.h>
+	"md6.h"
+	<intrin.h>
+	<stdint.h>
+
