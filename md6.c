@@ -127,7 +127,7 @@ int main (int argc, char* argv[]) {
             memcpy(data,out,128);
         }
     } else {
-        bytes=fread(buf,sizeof(char),512,file)
+        bytes=fread(buf,sizeof(char),512,file);
         if(bytes!=512){
                 //Block parcial
                 for(i=bytes;i<512;i++){
