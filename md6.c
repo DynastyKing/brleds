@@ -11,8 +11,8 @@ void parse_key(char* key, struct md6_config* config);
 void parse_args(int argc, char* argv[], struct md6_config* config);
 void print_output(uint64* output, uint16 digest_size);
 
-int tamanho(FILE* f){
-    int t;
+unsigned int tamanho(FILE* f){
+    unsigned int t;
     fseek(f, 0, SEEK_END);
     t = ftell (f);
     rewind(f);
@@ -29,8 +29,10 @@ int main (int argc, char* argv[]) {
     //Entradas
     FILE* file=fopen(argv[1],"rb");
     //Calcula tamanho do arquivo
-    int tam=tamanho(file);
-    int blocks=ceil(tam/512);
+    unsigned int tam=tamanho(file);
+    unsigned int blocks=tam/512;
+    if(tam%512)
+        blocks++;
     if(rank!=0){
         fclose(file);
     }
@@ -58,7 +60,8 @@ int main (int argc, char* argv[]) {
         //arquivo tiver mais de um bloco
         if(tam>512){
             bytes=fread(data,sizeof(char),tam,file);
-            MPI_Bcast(data,tam,MPI_CHAR, 0,MPI_COMM_WORLD);
+            if(size>1)
+                MPI_Bcast(data,tam,MPI_CHAR, 0,MPI_COMM_WORLD);
             for(i=rank;i<blocks;i+=size){
                 if(i==blocks-1){
                     bytes=tam-i*512;
@@ -67,7 +70,7 @@ int main (int argc, char* argv[]) {
                 }
                 memcpy(&(in[25]),&(data[i*512]),bytes);
                 buf=(unsigned char *) &(in[25]);
-                for(j=bytes;j<512;i++){
+                for(j=bytes;j<512;j++){
                     buf[j]=0x0;
                 }
                 reverse_buffer_byte_order(&(in[25]),64);
@@ -77,17 +80,21 @@ int main (int argc, char* argv[]) {
                 memcpy(&(data[i*128]),out,128);
             }
 
-            MPI_Barrier(MPI_COMM_WORLD);
-            for(i=0;i<blocks;i++){
-                MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+            if(size>1){
+                MPI_Barrier(MPI_COMM_WORLD);
+                for(i=0;i<blocks;i++){
+                    MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+                }
             }
             tam=blocks*128;
-            blocks=ceil(blocks/4);
+            blocks=blocks/4;
+            if(blocks%4)
+                blocks++;
             //Level atual
             int current_level=2;
 
             //Resto da arvore
-            while(blocks>4){
+            while(blocks>1){
                 for(current_index=rank;current_index<blocks;current_index+=size){
                     if(current_index==blocks-1&&tam-current_index*512!=0){
                         //Block parcial
@@ -98,7 +105,6 @@ int main (int argc, char* argv[]) {
                              0, 4096-(tam-current_index*512)*8, (uint8)(current_level), current_index);
                         f(in,out,state.config.rounds);
                         memcpy(&(data[current_index*128]),out,128);
-                        current_index++;
                     } else {
                         //Block completo
                         memcpy(&(in[25]),&(data[current_index*512]),512);
@@ -110,12 +116,18 @@ int main (int argc, char* argv[]) {
                 }
                 //Subir um level
                 current_level++;
-                MPI_Barrier(MPI_COMM_WORLD);
-                for(i=0;i<blocks;i++){
-                    MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+                if(size>1){
+                    MPI_Barrier(MPI_COMM_WORLD);
+                    for(i=0;i<blocks;i++){
+                        MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+                    }
                 }
                 tam=blocks*128;
-                blocks=ceil(blocks/4);
+                blocks=blocks/4;
+                if(blocks%4)
+                    blocks++;
+                if(size>1)
+                    MPI_Barrier(MPI_COMM_WORLD);
 
             }
             //Ultima compressão
@@ -173,7 +185,7 @@ int main (int argc, char* argv[]) {
                 }
                 memcpy(&(in[25]),&(data[i*512]),bytes);
                 buf=(unsigned char *) &(in[25]);
-                for(j=bytes;j<512;i++){
+                for(j=bytes;j<512;j++){
                     buf[j]=0x0;
                 }
                 reverse_buffer_byte_order(&(in[25]),64);
@@ -183,18 +195,21 @@ int main (int argc, char* argv[]) {
                 memcpy(&(data[i*128]),out,128);
             }
 
-            MPI_Barrier(MPI_COMM_WORLD);
-            for(i=0;i<blocks;i++){
-                MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+            if(size>1){
+                MPI_Barrier(MPI_COMM_WORLD);
+                for(i=0;i<blocks;i++){
+                    MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+                }
             }
             tam=blocks*128;
-            blocks=ceil(blocks/4);
-
+            blocks=blocks/4;
+            if(blocks%4)
+                blocks++;
             //Level atual
             int current_level=2;
 
             //Resto da arvore
-            while(blocks>4){
+            while(blocks>1){
                 for(current_index=rank;current_index<blocks;current_index+=size){
                     if(current_index==blocks-1&&tam-current_index*512!=0){
                         //Block parcial
@@ -205,7 +220,6 @@ int main (int argc, char* argv[]) {
                              0, 4096-(tam-current_index*512)*8, (uint8)(current_level), current_index);
                         f(in,out,state.config.rounds);
                         memcpy(&(data[current_index*128]),out,128);
-                        current_index++;
                     } else {
                         //Block completo
                         memcpy(&(in[25]),&(data[current_index*512]),512);
@@ -217,12 +231,18 @@ int main (int argc, char* argv[]) {
                 }
                 //Subir um level
                 current_level++;
-                MPI_Barrier(MPI_COMM_WORLD);
-                for(i=0;i<blocks;i++){
-                    MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+                if(size>1){
+                    MPI_Barrier(MPI_COMM_WORLD);
+                    for(i=0;i<blocks;i++){
+                        MPI_Bcast(&(data[i*128]),128,MPI_CHAR, i%size,MPI_COMM_WORLD);
+                    }
                 }
                 tam=blocks*128;
-                blocks=ceil(blocks/4);
+                blocks=blocks/4;
+                if(blocks%4)
+                    blocks++;
+                if(size>1)
+                    MPI_Barrier(MPI_COMM_WORLD);
 
             }
         }
