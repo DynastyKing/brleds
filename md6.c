@@ -18,6 +18,13 @@ unsigned int tamanho(FILE* f){
     rewind(f);
     return t;
 }
+unsigned int nextBlocksNum(unsigned int * a){
+    if(*a%4){
+        *a=*a/4+1;
+    } else {
+        *a=*a/4;
+    }
+}
 int main (int argc, char* argv[]) {
     int rank;
     int size;
@@ -27,20 +34,14 @@ int main (int argc, char* argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     //Entradas
-    FILE* file=fopen(argv[1],"rb");
     //Calcula tamanho do arquivo
-    unsigned int tam=tamanho(file);
-    unsigned int blocks=tam/512;
-    if(tam%512)
-        blocks++;
-    if(rank!=0){
-        fclose(file);
-    }
+    unsigned int tam;
+    unsigned int blocks;
     //Memoria necessaria para arvora 1/4 do tamanho do arquivo (mais complemento do block)
-    unsigned char data[tam];
+    unsigned char * data;
     unsigned char * buf;
     //block de entrada 512B
-    unsigned long long int in[64+25];
+    unsigned long long int in[89];
     //block de saida 128B
     unsigned long long int out[16];
     //Variaveis usadas
@@ -57,9 +58,18 @@ int main (int argc, char* argv[]) {
     state.config.digest_size = atoi(argv[2]); // This must be specified!
     state.config.rounds = 40 + (state.config.digest_size / 4);
     if(rank==0){
+        FILE* file=fopen(argv[1],"rb");
+        tam=tamanho(file);
+        blocks=tam/512;
+        if(tam%512)
+            blocks++;
+        data=(char *) malloc(tam);
         //arquivo tiver mais de um bloco
         if(tam>512){
+            if(size>1)
+                MPI_Bcast(&tam,1,MPI_UNSIGNED, 0,MPI_COMM_WORLD);
             bytes=fread(data,sizeof(char),tam,file);
+            fclose(file);
             if(size>1)
                 MPI_Bcast(data,tam,MPI_CHAR, 0,MPI_COMM_WORLD);
             for(i=rank;i<blocks;i+=size){
@@ -175,6 +185,11 @@ int main (int argc, char* argv[]) {
         print_output(out,state.config.digest_size);
         printf("\n");
     } else { //Rank != 0
+        MPI_Bcast(&tam,1,MPI_UNSIGNED, 0,MPI_COMM_WORLD);
+        blocks=tam/512;
+        if(tam%512)
+            blocks++;
+        data=(char *) malloc(tam);
         if(tam>512){
             MPI_Bcast(data,tam,MPI_CHAR, 0,MPI_COMM_WORLD);
             for(i=rank;i<blocks;i+=size){
