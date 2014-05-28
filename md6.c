@@ -7,8 +7,6 @@
 #include "math.h"
 #include <mpi/mpi.h>
 
-void parse_key(char* key, struct md6_config* config);
-void parse_args(int argc, char* argv[], struct md6_config* config);
 void print_output(uint64* output, uint16 digest_size);
 
 unsigned int tamanho(FILE* f){
@@ -97,9 +95,7 @@ int main (int argc, char* argv[]) {
                 }
             }
             tam=blocks*128;
-            blocks=blocks/4;
-            if(blocks%4)
-                blocks++;
+            nextBlocksNum(&blocks);
             //Level atual
             int current_level=2;
 
@@ -133,9 +129,7 @@ int main (int argc, char* argv[]) {
                     }
                 }
                 tam=blocks*128;
-                blocks=blocks/4;
-                if(blocks%4)
-                    blocks++;
+                nextBlocksNum(&blocks);
                 if(size>1)
                     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -159,6 +153,7 @@ int main (int argc, char* argv[]) {
             }
         } else {
             bytes=fread(data,sizeof(char),tam,file);
+            fclose(file);
             if(bytes!=512){
                 //Block parcial
                 memcpy(&(in[25]),data,bytes);
@@ -217,9 +212,7 @@ int main (int argc, char* argv[]) {
                 }
             }
             tam=blocks*128;
-            blocks=blocks/4;
-            if(blocks%4)
-                blocks++;
+            nextBlocksNum(&blocks);
             //Level atual
             int current_level=2;
 
@@ -253,9 +246,7 @@ int main (int argc, char* argv[]) {
                     }
                 }
                 tam=blocks*128;
-                blocks=blocks/4;
-                if(blocks%4)
-                    blocks++;
+                nextBlocksNum(&blocks);
                 if(size>1)
                     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -285,85 +276,3 @@ void print_output(uint64* output, uint16 digest_size) {
     printf("%02x", cur_byte);
   }
 }
-
-void parse_args(int argc, char* argv[], struct md6_config* config) {
-  int i;
-  int num_rounds = -1;
-
-  // Set default parameters:
-  config->keylen = 0; // implies key is nil
-  memset(config->key, 0, MAX_KEYLEN);
-  config->max_level = 64;
-  config->digest_size = 0; // This must be specified!
-  config->rounds = 104;    // Determined from digest size
-
-  for(i = 1; i < argc; i++) {
-    if (strcmp(argv[i], "-k") == 0 ||
-	strcmp(argv[i], "--key") == 0) {
-      parse_key(argv[i+1], config);
-      i++;
-    } else if (strcmp(argv[i], "-d") == 0 ||
-	       strcmp(argv[i], "--digest-size") == 0) {
-      config->digest_size = atoi(argv[i + 1]);
-      i++;
-    } else if (strcmp(argv[i], "-L") == 0 ||
-	       strcmp(argv[i], "--level") == 0) {
-      config->max_level = atoi(argv[i + 1]);
-      i++;
-    } else if (strcmp(argv[i], "-r") == 0 ||
-	       strcmp(argv[i], "--rounds") == 0) {
-      num_rounds = atoi(argv[i + 1]);
-      i++;
-    } else if (strcmp(argv[i], "-i") == 0) {
-      debug = atoi(argv[i + 1]);
-    } else if (strcmp(argv[i], "-h") == 0 ||
-	       strcmp(argv[i], "--help") == 0) {
-      printf("\nmd6 usage: \n");
-      printf("md6 -d <digest_size> < <filename>\n");
-      printf("\nOptions:\n");
-      printf("-k, --key <key>        Use <key> in the compression function\n");
-      printf("-L, --level <level>    Specify the maximum level for PAR operation\n");
-      printf("-r, --rounds <rounds>  Run the compression function for <rounds>\n");
-      printf("-i <debug level>       How much debug output. 0 is least, 2 is most\n");
-      printf("-h, --help             Print this help and exit\n\n");
-      exit(0);
-    }
-  }
-
-  if (num_rounds != -1) {
-    config->rounds = num_rounds;
-  } else {
-    config->rounds = md6_default_r(config->digest_size, config->keylen);
-  }
-
-  if (config->digest_size < 1 || config->digest_size > 512) {
-    printf("digest size must be between 1 and 512 (inclusive)\n\n");
-    exit(1);
-  } else if (config->rounds > 0x0fff) {
-    printf("rounds must be between 1 and %d (inclusive)\n\n", 0x0fff);
-  }
-}
-
-void parse_key(char* key, struct md6_config* config) {
-  int i;
-
-  // Make sure key is an appropriate size
-  config->keylen = strlen(key);
-  if (config->keylen > MAX_KEYLEN) {
-    printf("key must be between 1 and 64 bytes.\n\n");
-    exit(1);
-  }
-  // Copy the key into the md6_config struct,
-  // converting from big endian to little endian.
-  for (i = 0; i < config->keylen; i++) {
-    // index in argv to avoid array out of bounds.
-    // config->key has already been zeroed out,
-    (config->key)[8*(i/8) + 7 - (i % 8)] = key[i];
-  }
-  // Add zero bytes to finish off the key.
-  for (;i % 8 != 0; i++) {
-    (config->key)[8*(i/8) + 7 - (i % 8)] = 0;
-  }
-}
-
-
