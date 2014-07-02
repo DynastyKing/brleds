@@ -1,3 +1,6 @@
+#include <sys/time.h>
+#include <time.h>
+#include <sys/resource.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,7 +8,7 @@
 #include "modes.h"
 #include "nist.h"
 #include "math.h"
-#include <mpi/mpi.h>
+#include <mpi.h>
 
 void print_output(uint64* output, uint16 digest_size);
 
@@ -26,7 +29,7 @@ unsigned int nextBlocksNum(unsigned int * a){
 int main (int argc, char* argv[]) {
     int rank;
     int size;
-    const int root=0;
+
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -56,12 +59,15 @@ int main (int argc, char* argv[]) {
     state.config.digest_size = atoi(argv[2]); // This must be specified!
     state.config.rounds = 40 + (state.config.digest_size / 4);
     if(rank==0){
+        struct timespec ts_start;
+        struct timespec ts_end;
+        clock_gettime(CLOCK_MONOTONIC, &ts_start);
         FILE* file=fopen(argv[1],"rb");
         tam=tamanho(file);
         blocks=tam/512;
         if(tam%512)
             blocks++;
-        data=(char *) malloc(tam);
+        data=(unsigned char *) malloc(blocks*512);
         //arquivo tiver mais de um bloco
         if(tam>512){
             if(size>1)
@@ -179,6 +185,9 @@ int main (int argc, char* argv[]) {
         reverse_buffer_byte_order(out,16);
         print_output(out,state.config.digest_size);
         printf("\n");
+        clock_gettime(CLOCK_MONOTONIC, &ts_end);
+        printf("Ini: %ld.%.9ld\n", ts_start.tv_sec, ts_start.tv_nsec);
+        printf("Fim: %ld.%.9ld\n", ts_end.tv_sec, ts_end.tv_nsec);
     } else { //Rank != 0
         MPI_Bcast(&tam,1,MPI_UNSIGNED, 0,MPI_COMM_WORLD);
         blocks=tam/512;
